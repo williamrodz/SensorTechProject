@@ -1,5 +1,4 @@
 const int input = A0 ;    //naming pin 2 as ‘pwm’ variable 
-const int adc = 0 ;   //naming pin 0 of analog input side as ‘adc’
 
 void setup()
 {
@@ -8,10 +7,22 @@ void setup()
 }
 void loop()
 {
-     int adc  = analogRead(0) ;    //reading analog voltage and storing it in an integer 
-     //adc = map(adc, 0, 1023, 0, 255);
+     float initValue  = analogRead(0) ;    //reading analog voltage and storing it in an integer 
+     float sensorValue = initValue * (5.0 / 1023.0);
      Serial.println();  
-     Serial.print(adc);
+     //Serial.print(sensorValue);
+
+     if (sensorValue< 2.2) {
+      int IR_decision =0;
+      Serial.print(IR_decision);
+     }
+     else {
+      int IR_decision = 1;
+      Serial.print(IR_decision);      
+     }
+    
+     //Clear: around 3.41V
+     //Blocked: below 1.2V (ranges depending on how far)
 
      //1V = 200
      //2V = 400
@@ -30,8 +41,5 @@ void loop()
      //4.1 = 830
 
      //Rounds to nearest voltage
-/*
-----------map funtion------------the above funtion scales the output of adc, which is 10 bit and gives values btw 0 to 1023, in values btw 0 to 255 form analogWrite funtion which only receives  values btw this range
-*/
-     //analogWrite(pwm,adc) ; 
+  //analogWrite(pwm,adc) ; 
 }
