@@ -3,8 +3,8 @@
 
   
 // constants won't change. Used here to set a pin number:
-const int ledPin =  LED_BUILTIN;// the number of the LED pin
-int inPin = 12;
+const int ledPin =  LED_BUILTIN;// the number of the LED pin //pin 13
+int inPin = 12; //pin 12 is output of sensor
 int val = 0;
 
 void setup() {
@@ -20,16 +20,16 @@ void loop() {
   // put your main code here, to run repeatedly:
   // here is where you'd put code that needs to be running all the time.
 
-//  val = digitalRead(inPin);   // read the input pin
-//  if (val == HIGH){
-//      digitalWrite(ledPin, LOW);
-//  } else{
-//      digitalWrite(ledPin, HIGH);
-//  }
-//  
-//  digitalWrite(ledPin,HIGH);
-//  delay(1000);
-//  digitalWrite(ledPin,LOW);
-//  delay(5000);
+  val = digitalRead(inPin);   // read the input pin
+  if (val == HIGH){
+      digitalWrite(ledPin, LOW);
+  } else{
+      digitalWrite(ledPin, HIGH);
+  }
+  
+  //digitalWrite(ledPin,HIGH);
+  //delay(1000);
+  //digitalWrite(ledPin,LOW);
+  //delay(5000);
 
 }
