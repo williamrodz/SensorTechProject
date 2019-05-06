@@ -1,10 +1,11 @@
 #include <MPU9250_asukiaaa.h>
 
 #ifdef _ESP32_HAL_I2C_H_
-#define SDA_PIN A4
-#define SCL_PIN A5
+#define SDA_PIN A4 //Green
+#define SCL_PIN A5 //Silver A5
 #endif
 
+// 3.3V is VDD`
 MPU9250 mySensor;
 
 uint8_t sensorId;
