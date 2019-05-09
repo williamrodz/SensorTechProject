@@ -3,6 +3,47 @@ const int input = A0 ;    //naming pin 2 as ‘pwm’ variable
 
 
 const int dataReadPeriod = 500; //in milliseconds
+// Moving Average
+const int numOfForcesToSave = 100; // saves 50 seconds (100 readings/2 readings per sec) 
+float savedForces[numOfForcesToSave];
+float movingAverageForce;
+int currentIndex = 0;
+bool movingAverageCalculatedYet = false;
+bool IMUAlert = false;
+float forceThreshold = 10.0;
+
+
+void recordNewForce (float newForce)
+{
+  if (currentIndex < numOfForcesToSave) 
+  {
+    savedForces[currentIndex] = newForce;
+  }
+  else
+  {
+    savedForces[currentIndex % numOfForcesToSave] = newForce;
+
+    if (movingAverageCalculatedYet){
+      const float difference = abs(movingAverageForce - newForce);
+      if (difference > forceThreshold){
+        IMUAlert = true;
+      }
+    }
+    movingAverageForce = getAverage(savedForces);
+    movingAverageCalculatedYet = true;
+  }
+}
+
+float getAverage(float inputArray[])
+{
+    float sum = 0;
+    for (int i = 0; i <= sizeof(inputArray); i++)
+    {
+      sum = sum + inputArray[i];
+    }
+    return sum/sizeof(inputArray);
+}
+
 const int ledPin =  LED_BUILTIN;// the number of the LED pin //pin 13
 
 // Hall Effect
@@ -76,7 +117,7 @@ void loop()
      //Serial.print(sensorValue);
 
      if (sensorValue< 2.2) {
-      int IR_decision =0;
+      int IR_decision = 0;
       Serial.println("IR_decision is "+ String(IR_decision));
      }
      else {
@@ -112,16 +153,18 @@ void loop()
       force_x = massOfBike * aX;
       force_y = massOfBike * aY;
       force_z = massOfBike * aZ;
+      float xyzFmagnitude = sqrt(force_x*force_x + force_y*force_y+force_z*force_z);
+      recordNewForce(xyzFmagnitude);
       
 //      Serial.println("force_x: " + String(force_x));
 //      Serial.println("force_y: " + String(force_y));
 //      Serial.println("force_z: " + String(force_z));
     
-      //integrate towards position
-      secondsSoFar = millis()/1000;
-      pos_x = aX * secondsSoFar * secondsSoFar * 0.5;
-      pos_y = aY * secondsSoFar * secondsSoFar * 0.5;
-      pos_z = aZ * secondsSoFar * secondsSoFar * 0.5;
+      secondsSoFar = millis()/1000; 
+//integrate towards position ----> decided that would be too hard to calculate due 2 need to remove gravity
+//      pos_x = aX * secondsSoFar * secondsSoFar * 0.5;
+//      pos_y = aY * secondsSoFar * secondsSoFar * 0.5;
+//      pos_z = aZ * secondsSoFar * secondsSoFar * 0.5;
 //      Serial.println("pos_x: " + String(pos_x));
 //      Serial.println("pos_y: " + String(pos_y));
 //      Serial.println("pos_z: " + String(pos_z));
@@ -151,7 +194,7 @@ void loop()
 
       
      //Buzzer
-    if (systemArmed && triggerAlarm){
+    if (systemArmed && IMUAlert && triggerAlarm){
      tone(buzzerPin, 1000); // Send 1KHz sound signal...
      delay(1000);        // ...for 1 sec
      noTone(buzzerPin);     // Stop sound...
