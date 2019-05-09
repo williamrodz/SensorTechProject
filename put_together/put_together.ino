@@ -26,6 +26,7 @@ void recordNewForce (float newForce)
     if (movingAverageCalculatedYet){
       const float difference = abs(movingAverageForce - newForce);
       if (difference > forceThreshold){
+        Serial.println("ALERT:passed force threshold");
         IMUAlert = true;
       }
     }
@@ -155,19 +156,10 @@ void loop()
       force_z = massOfBike * aZ;
       float xyzFmagnitude = sqrt(force_x*force_x + force_y*force_y+force_z*force_z);
       recordNewForce(xyzFmagnitude);
-      
-//      Serial.println("force_x: " + String(force_x));
-//      Serial.println("force_y: " + String(force_y));
-//      Serial.println("force_z: " + String(force_z));
-    
+      Serial.println("Force Magnitue:"+ String(xyzFmagnitude));
+ 
       secondsSoFar = millis()/1000; 
 //integrate towards position ----> decided that would be too hard to calculate due 2 need to remove gravity
-//      pos_x = aX * secondsSoFar * secondsSoFar * 0.5;
-//      pos_y = aY * secondsSoFar * secondsSoFar * 0.5;
-//      pos_z = aZ * secondsSoFar * secondsSoFar * 0.5;
-//      Serial.println("pos_x: " + String(pos_x));
-//      Serial.println("pos_y: " + String(pos_y));
-//      Serial.println("pos_z: " + String(pos_z));
     
     
       mySensor.gyroUpdate();
