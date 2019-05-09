@@ -13,6 +13,10 @@ void setup() {
   pinMode(ledPin, OUTPUT); //set the LED pin to output
   pinMode(inPin, INPUT);    // sets the digital pin 12 as input
 
+  while(!Serial);
+  Serial.begin(115200); //begin serial communication at specified channel
+  Serial.println("started");
+
 
 }
 
@@ -22,9 +26,11 @@ void loop() {
 
   val = digitalRead(inPin);   // read the input pin
   if (val == HIGH){
-      digitalWrite(ledPin, LOW);
+      //digitalWrite(ledPin, LOW);
+      //Serial.println("HIGH");
   } else{
-      digitalWrite(ledPin, HIGH);
+      //digitalWrite(ledPin, HIGH);
+      Serial.println("Detected Magnet South");
   }
   
   //digitalWrite(ledPin,HIGH);

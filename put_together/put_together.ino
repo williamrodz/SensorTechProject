@@ -10,11 +10,15 @@ float movingAverageForce;
 int currentIndex = 0;
 bool movingAverageCalculatedYet = false;
 bool IMUAlert = false;
-float forceThreshold = 10.0;
+float forceThreshold = 15.0;
 
 
 void recordNewForce (float newForce)
 {
+  Serial.println("New force is " + String(newForce));
+  Serial.println("IMUAlert is " + String(IMUAlert));
+
+  
   if (currentIndex < numOfForcesToSave) 
   {
     savedForces[currentIndex] = newForce;
@@ -186,7 +190,7 @@ void loop()
 
       
      //Buzzer
-    if (systemArmed && IMUAlert && triggerAlarm){
+    if ( IMUAlert){
      tone(buzzerPin, 1000); // Send 1KHz sound signal...
      delay(1000);        // ...for 1 sec
      noTone(buzzerPin);     // Stop sound...
