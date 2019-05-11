@@ -25,7 +25,7 @@ int switchVinPin = 10;
 
 // Alarm Decision
 bool IRSensorTriggered = false;
-bool magnetSensorTriggered = false;
+bool hallSensorTriggered = false;
 bool IMUTriggered = false;
 
 
@@ -64,32 +64,35 @@ bool triggerAlarm = false;
 const int dataReadPeriod = 500; //in milliseconds
 
 // Moving Average
-const int numOfForcesToSave = 100; // saves 50 seconds (100 readings/2 readings per sec) 
-float savedForces[numOfForcesToSave];
+const int numOfDataPointsToSave = 100; // saves 50 seconds (100 readings/2 readings per sec) 
+float savedForces[numOfDataPointsToSave];
+// saved wheel detections
+int savedHallDetections[numOfDataPointsToSave];
+int savedIRDetections[numOfDataPointsToSave];
 
 
 float movingAverageForce;
-int currentIndex = 0;
 bool movingAverageCalculatedYet = false;
 float forceDifferenceThreshold = 7;
 
 
+int i_forces = 0;
 void recordNewForce (float newForce)
 {
   //Serial.println("New force is " + String(newForce));
   Serial.println("IMUTriggered is " + String(IMUTriggered));
 
   
-  if (currentIndex < numOfForcesToSave) 
+  if (i_forces < numOfDataPointsToSave) 
   {
-    Serial.println("at index " +String(currentIndex));
-    savedForces[currentIndex] = newForce;
+    Serial.println("at index " +String(i_forces));
+    savedForces[i_forces] = newForce;
   }
   else
   {
-    Serial.println("Refilling at " +String(currentIndex));
+    Serial.println("Refilling at " +String(i_forces));
 
-    savedForces[currentIndex % numOfForcesToSave] = newForce;
+    savedForces[i_forces % numOfDataPointsToSave] = newForce;
 
     if (movingAverageCalculatedYet){
       const float difference = abs(movingAverageForce - newForce);
@@ -103,9 +106,63 @@ void recordNewForce (float newForce)
     movingAverageForce = getAverage(savedForces);
     movingAverageCalculatedYet = true;
   }
-  currentIndex++;
+  i_forces++;
 }
 
+int i_hall = 0;
+void recordNewHallDetection(int newHallValue)
+{
+  if (i_hall < numOfDataPointsToSave){
+    savedHallDetections[i_hall] = newHallValue;
+  }
+  else
+  {
+    savedHallDetections[i_hall % numOfDataPointsToSave] = newHallValue;
+    if (didExceedRPM(savedHallDetections))
+    {
+      hallSensorTriggered = true;
+    }
+  }
+}
+
+int i_IR = 0;
+void recordNewIRDetection(int newIRValue)
+{
+  if (i_IR < numOfDataPointsToSave){
+    savedIRDetections[i_IR] = newIRValue;
+  }
+  else
+  {
+    savedIRDetections[i_IR % numOfDataPointsToSave] = newIRValue;
+    if (didExceedRPM(savedIRDetections))
+    {
+      IRSensorTriggered = true;
+    }    
+  }
+}
+
+// average cyclist pedals at about 60 rpm,
+int RPMLimit = 40;
+bool didExceedRPM(int wheelDetections[])
+{
+  int totalRotations = 0;
+  for (int i; i < sizeof(wheelDetections); i++){
+    if (wheelDetections[i] == 1)
+    {
+      totalRotations++;
+    }
+  }
+  if (totalRotations >= RPMLimit)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
+// return the average of an inputted array
 float getAverage(float inputArray[])
 {
     float sum = 0;
@@ -116,11 +173,15 @@ float getAverage(float inputArray[])
     return sum/sizeof(inputArray);
 }
 
-
+// Changes alarm from armed to disarmed and vice-versa
 void toggleARMED()
 {
   ARMED = !ARMED;
 }
+
+// ----------SETUP BLOCK BEGINS HERE ----------
+// -----(code that runs right before loop) ----------
+
 
 void setup()
 {
@@ -150,9 +211,13 @@ void setup()
   sensorId = mySensor.readId();
 
 }
+
+// ----------LOOP BLOCK BEGINS HERE ----------
+// -----(code that runs every dataReadPeriod) ----------
+
+
 void loop()
 {
-
     // Switch
      int switchVoltage = digitalRead(switchOutputPin);   // read the hallEffectOutputPin
      Serial.println("switchVoltage" + String(switchVoltage));
@@ -247,12 +312,21 @@ void loop()
 
       bool allowAlarm = false;
      //Buzzer
-    if (IMUTriggered && allowAlarm){
-     tone(buzzerPin, 1000); // Send 1KHz sound signal...
-     delay(1000);        // ...for 1 sec
+    if (IMUTriggered && hallSensorTriggered && IRSensorTriggered && allowAlarm)
+    {
+      //buzz a lot
+     tone(buzzerPin, 1000); // Send 2KHz sound signal..
+     delay(500);        // ...for half a sec
      noTone(buzzerPin);     // Stop sound...
-     delay(1000);        // ...for 1sec
     }
+    if (IMUTriggered && allowAlarm)
+    {
+      // buzz
+     tone(buzzerPin, 1000); // Send 1KHz sound signal...
+     delay(2000);        // ...for 2 sec
+     noTone(buzzerPin);     // Stop sound...
+     delay(2000);        // ...for 2sec
+    } 
     delay(dataReadPeriod); 
      
      //Clear: around 3.41V
