@@ -73,7 +73,7 @@ int savedIRDetections[numOfDataPointsToSave];
 
 float movingAverageForce;
 bool movingAverageCalculatedYet = false;
-float forceDifferenceThreshold = 7;
+float forceDifferenceThreshold = 1;
 
 
 int i_forces = 0;
@@ -109,20 +109,26 @@ void recordNewForce (float newForce)
   i_forces++;
 }
 
+// average cyclist pedals at about 60 rpm,
+int RPMLimit = 40;
+
 int i_hall = 0;
 void recordNewHallDetection(int newHallValue)
 {
-  if (i_hall < numOfDataPointsToSave){
+  //Serial.println("savedHallDetections is of size"+String(sizeof(savedHallDetections)));
+  if (i_hall < numOfDataPointsToSave)
+  {
     savedHallDetections[i_hall] = newHallValue;
   }
   else
   {
     savedHallDetections[i_hall % numOfDataPointsToSave] = newHallValue;
-    if (didExceedRPM(savedHallDetections))
+    if (getSumOfArray(savedHallDetections) >= RPMLimit)
     {
       hallSensorTriggered = true;
     }
   }
+  i_hall++;
 }
 
 int i_IR = 0;
@@ -134,33 +140,49 @@ void recordNewIRDetection(int newIRValue)
   else
   {
     savedIRDetections[i_IR % numOfDataPointsToSave] = newIRValue;
-    if (didExceedRPM(savedIRDetections))
+    if (getSumOfArray(savedIRDetections) >= RPMLimit)
     {
       IRSensorTriggered = true;
     }    
   }
+  i_IR++;
 }
 
-// average cyclist pedals at about 60 rpm,
-int RPMLimit = 40;
-bool didExceedRPM(int wheelDetections[])
+
+int getSumOfArray(int integerArray[])
 {
-  int totalRotations = 0;
-  for (int i; i < sizeof(wheelDetections); i++){
-    if (wheelDetections[i] == 1)
-    {
-      totalRotations++;
-    }
-  }
-  if (totalRotations >= RPMLimit)
+  int sum = 0;
+  for (int i = 0; i < sizeof(integerArray); i++)
   {
-    return true;
+      sum += integerArray[i];
   }
-  else
-  {
-    return false;
-  }
+  Serial.println("Sum is " +String(sum) + "for array of size "+String(sizeof(integerArray)));
+  return sum;
 }
+
+
+
+//bool didExceedRPM(int wheelDetections[])
+//{
+//  Serial.println("-----wheel detections----");
+//  int totalRotations = 0;
+//  for (int i; i < sizeof(wheelDetections); i++){
+//    Serial.println(String(wheelDetections[i]));
+//    if (wheelDetections[i] == 1)
+//    {
+//      totalRotations++;
+//    }
+//  }
+//  Serial.println("totalRotations"+String(totalRotations));
+//  if (totalRotations >= RPMLimit)
+//  {
+//    return true;
+//  }
+//  else
+//  {
+//    return false;
+//  }
+//}
 
 // return the average of an inputted array
 float getAverage(float inputArray[])
@@ -179,6 +201,19 @@ void toggleARMED()
   ARMED = !ARMED;
 }
 
+void checkIfShouldDisarm()
+{
+  int switchVoltage = digitalRead(switchOutputPin);
+  if (switchVoltage == LOW)
+  {
+    ARMED = false;
+    IMUTriggered = false;
+    IRSensorTriggered = false;
+    hallSensorTriggered = false;
+    
+  }
+}
+
 // ----------SETUP BLOCK BEGINS HERE ----------
 // -----(code that runs right before loop) ----------
 
@@ -189,6 +224,7 @@ void setup()
      pinMode(hallEffectOutputPin, INPUT);    // sets the digital pin 12 as input for hall effect sensor
      pinMode(buzzerPin, OUTPUT); // Set buzzer - pin 10 as an output
      pinMode(switchVinPin,OUTPUT);
+     digitalWrite(switchVinPin,HIGH);
      pinMode(switchOutputPin,INPUT);
 
 
@@ -219,8 +255,8 @@ void setup()
 void loop()
 {
     // Switch
+     Serial.println("Is system armed?"+String(ARMED));
      int switchVoltage = digitalRead(switchOutputPin);   // read the hallEffectOutputPin
-     Serial.println("switchVoltage" + String(switchVoltage));
      if (switchVoltage == HIGH){
         Serial.println("Switch: 1");
       } 
@@ -248,13 +284,15 @@ void loop()
      hallEffectVoltage = digitalRead(hallEffectOutputPin);   // read the hallEffectOutputPin
      if (hallEffectVoltage == HIGH){
         Serial.println("Hall: 0");
+        recordNewHallDetection(0);
       } 
       else{
         Serial.println("Hall: 1");
+        recordNewHallDetection(1);
       }
 
      // IMU
-    Serial.println("sensorId: " + String(sensorId));
+    //Serial.println("sensorId: " + String(sensorId));
     
       mySensor.accelUpdate();
       aX = mySensor.accelX();
@@ -273,10 +311,24 @@ void loop()
       force_y = massOfBike * aY;
       force_z = massOfBike * aZ;
       float xyzFmagnitude = sqrt(force_x*force_x + force_y*force_y+force_z*force_z);
-      recordNewForce(xyzFmagnitude);
-      if (debugForce){
+      if (!movingAverageCalculatedYet)
+      {
+        recordNewForce(xyzFmagnitude);
+      }
+      else
+      {
+        Serial.println("movingAverageForce is "+ String(movingAverageForce));
+        const float difference = abs(movingAverageForce - xyzFmagnitude);
+        Serial.println("Difference is "+String(difference));
+        if (difference > forceDifferenceThreshold)
+        {
+          Serial.println("ALERT:passed force threshold");
+          IMUTriggered = true;
+        }
+      }
+      if (debugForce)
+      {
         Serial.println("Force Magnitue:"+ String(xyzFmagnitude));
-
       }
  
       secondsSoFar = millis()/1000;     
@@ -310,22 +362,25 @@ void loop()
       Serial.println(""); // Add an empty line
           
 
-      bool allowAlarm = false;
+      bool allowAlarm = true;
      //Buzzer
-    if (IMUTriggered && hallSensorTriggered && IRSensorTriggered && allowAlarm)
+    if (ARMED && IMUTriggered && hallSensorTriggered && IRSensorTriggered && allowAlarm)
     {
       //buzz a lot
      tone(buzzerPin, 1000); // Send 2KHz sound signal..
      delay(500);        // ...for half a sec
      noTone(buzzerPin);     // Stop sound...
+     checkIfShouldDisarm();
     }
-    if (IMUTriggered && allowAlarm)
+    if (ARMED && IMUTriggered && allowAlarm)
     {
       // buzz
      tone(buzzerPin, 1000); // Send 1KHz sound signal...
-     delay(2000);        // ...for 2 sec
+     delay(1000);        // ...for 1 sec
      noTone(buzzerPin);     // Stop sound...
      delay(2000);        // ...for 2sec
+     checkIfShouldDisarm();
+
     } 
     delay(dataReadPeriod); 
      
