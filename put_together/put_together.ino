@@ -12,16 +12,24 @@
 // Everything except IMU uses 5V. IMU uses 3.3V
 
 // Debugging
+bool debugSystemArmed = true;
+bool debugIMUTriggered = true;
+bool debugIRTriggered = true;
+bool debugIR_RPP = true;
+bool debugIRVoltage = false;
+bool debugHallTriggered = true;
+bool debugHall_RPP = false;
 bool debugAcceleration = false;
 bool debugForce = true;
 bool debugGyro = false;
 bool debugMagnetic = false;
-
+bool viewTime = true;
 
 // Switch
 bool ARMED = false;
 int switchOutputPin = 7;
 int switchVinPin = 10;
+
 
 // Alarm Decision
 bool IRSensorTriggered = false;
@@ -73,7 +81,7 @@ int savedIRDetections[numOfDataPointsToSave];
 
 float movingAverageForce;
 bool movingAverageCalculatedYet = false;
-float forceDifferenceThreshold = 1;
+float forceDifferenceThreshold = 6;
 
 
 int i_forces = 0;
@@ -82,19 +90,19 @@ void recordNewForce (float newForce)
  
   if (i_forces < numOfDataPointsToSave) 
   {
-    Serial.println("at index " +String(i_forces));
+    Serial.println(0);
     savedForces[i_forces] = newForce;
   }
   else
   {
-    Serial.println("Refilling at " +String(i_forces));
+    //Serial.println("Refilling at " +String(i_forces));
 
     savedForces[i_forces % numOfDataPointsToSave] = newForce;
 
     if (movingAverageCalculatedYet){
       const float difference = abs(movingAverageForce - newForce);
-      Serial.println("movingAverageForce is "+ String(movingAverageForce));
-      Serial.println("Difference is "+ String(difference));
+      //Serial.println(String(difference));
+      
       if (difference > forceDifferenceThreshold){
         Serial.println("ALERT:passed force threshold");
         IMUTriggered = true;
@@ -106,9 +114,8 @@ void recordNewForce (float newForce)
   i_forces++;
 }
 
-// average cyclist pedals at about 60 rpm,
 
-const int HALL_RPP_LIMIT = 3;
+const int HALL_RPP_LIMIT = 2;
 
 int i_hall = 0;
 void recordNewHallDetection(int newHallValue)
@@ -121,7 +128,11 @@ void recordNewHallDetection(int newHallValue)
   {
     savedHallDetections[i_hall % numOfDataPointsToSave] = newHallValue;
     int HALL_RPP = getSumOfArray(savedHallDetections);
-    Serial.println("HALL_RPP: "+String(HALL_RPP));
+    if (debugHall_RPP)
+    {
+      Serial.println("HALL_RPP: "+String(HALL_RPP));
+      //Serial.println(String(HALL_RPP));      
+    }
     if (HALL_RPP >= HALL_RPP_LIMIT)
     {
       hallSensorTriggered = true;
@@ -131,7 +142,7 @@ void recordNewHallDetection(int newHallValue)
 }
 
 int i_IR = 0;
-const int IR_RPP_LIMIT = 10;
+const int IR_RPP_LIMIT = 3;
 void recordNewIRDetection(int newIRValue)
 {
   if (i_IR < numOfDataPointsToSave){
@@ -141,7 +152,11 @@ void recordNewIRDetection(int newIRValue)
   {
     savedIRDetections[i_IR % numOfDataPointsToSave] = newIRValue;
     int IR_RPP = getSumOfArray(savedIRDetections);
-    Serial.println("IR_RPP: "+String(IR_RPP));
+    if (debugIR_RPP)
+    {
+      //Serial.println("IR_RPP: "+String(IR_RPP));
+      //Serial.println(String(IR_RPP));    
+    }
     
     if (IR_RPP >= IR_RPP_LIMIT)
     {
@@ -163,6 +178,15 @@ int getSumOfArray(int integerArray[])
   return sum;
 }
 
+void setArrayToZero(int integerArray[])
+{
+  int sum = 0;
+  int n = numOfDataPointsToSave;//sizeof(integerArray) / sizeof(integerArray[0]);
+  for (int i = 0; i < n ; i++)
+  { 
+      integerArray[i] = 0;
+  }
+}
 
 
 // return the average of an inputted array
@@ -180,6 +204,19 @@ float getAverage(float inputArray[])
 void toggleARMED()
 {
   ARMED = !ARMED;
+  updateALARMEDled();
+}
+
+void updateALARMEDled()
+{
+  if (ARMED)
+  {
+    digitalWrite(LED_BUILTIN, HIGH);
+  }
+  else
+  {
+    digitalWrite(LED_BUILTIN, LOW);
+  }
 }
 
 void checkIfShouldDisarm()
@@ -191,8 +228,39 @@ void checkIfShouldDisarm()
     IMUTriggered = false;
     IRSensorTriggered = false;
     hallSensorTriggered = false;
-    
+    updateALARMEDled();
+    setArrayToZero(savedHallDetections);
+    setArrayToZero(savedIRDetections);
   }
+}
+
+void loudAlarm()
+{
+  // buzz
+  tone(buzzerPin, 1000); // Send 1KHz sound signal...
+  delay(100);        // ...for 1 sec
+  noTone(buzzerPin);     // Stop sound...
+  delay(100);
+  
+  tone(buzzerPin, 1000); // Send 1KHz sound signal...
+  delay(100);
+  noTone(buzzerPin);     // Stop sound...
+  delay(100);
+  
+  tone(buzzerPin, 1000); // Send 1KHz sound signal...
+  delay(1000);
+  noTone(buzzerPin);     // Stop sound...     
+  
+  delay(2000);        // ...for 2sec
+}
+
+void lowAlarm()
+{
+  // buzz
+  tone(buzzerPin, 750); // Send 1KHz sound signal...
+  delay(200);        // ...for 1 sec
+  noTone(buzzerPin);     // Stop sound...
+  delay(200);  
 }
 
 // ----------SETUP BLOCK BEGINS HERE ----------
@@ -207,6 +275,7 @@ void setup()
      pinMode(switchVinPin,OUTPUT);
      digitalWrite(switchVinPin,HIGH);
      pinMode(switchOutputPin,INPUT);
+     pinMode(LED_BUILTIN, OUTPUT);
 
 
     // IMU Setup  
@@ -236,18 +305,31 @@ void setup()
 void loop()
 {
     // Switch
+    if (debugSystemArmed)
+    {
      Serial.println("Is system armed?: "+String(ARMED));
+    }
+    if (debugIMUTriggered)
+    {
      Serial.println("IMUTriggered is " + String(IMUTriggered));
-     Serial.println("hallSensorTriggered is " + String(hallSensorTriggered));
-     Serial.println("IRSensorTriggered is " + String(IRSensorTriggered));
+      
+    }
+    if (debugHallTriggered)
+    {
+     Serial.println("hallSensorTriggered is " + String(hallSensorTriggered));      
+    }
+    if (debugIRTriggered)
+    {
+     Serial.println("IRSensorTriggered is " + String(IRSensorTriggered));      
+    }
 
 
      int switchVoltage = digitalRead(switchOutputPin);   // read the hallEffectOutputPin
      if (switchVoltage == HIGH){
-        Serial.println("Switch: 1");
+        //Serial.println("Switch: 1");
       } 
       else{
-        Serial.println("Switch: 0");
+        //Serial.println("Switch: 0");
         toggleARMED();
       }
 
@@ -255,26 +337,30 @@ void loop()
      // IR LED reading
      float initValue  = analogRead(0) ;    //reading analog voltage and storing it in an integer 
      float sensorValue = initValue * (5.0 / 1023.0);
-
+     if (debugIRVoltage)
+     {
+      Serial.println(sensorValue);      
+     }
+     
      if (sensorValue < 2.2) {
       int IR_decision = 0;
-      Serial.println("IR: "+ String(IR_decision));
+      //Serial.println("IR: "+ String(IR_decision));
       recordNewIRDetection(1); //it's opposite, because IR=1 means spoke has not crossed IR LED
      }
      else {
       int IR_decision = 1;
-      Serial.println("IR:  "+ String(IR_decision));
+      //Serial.println("IR:  "+ String(IR_decision));
       recordNewIRDetection(0);   
      }
 
       //Hall Effect
      hallEffectVoltage = digitalRead(hallEffectOutputPin);   // read the hallEffectOutputPin
      if (hallEffectVoltage == HIGH){
-        Serial.println("Hall: 0");
+        //Serial.println("Hall: 0");
         recordNewHallDetection(0);
       } 
       else{
-        Serial.println("Hall: 1");
+        //Serial.println("Hall: 1");
         recordNewHallDetection(1);
       }
 
@@ -304,18 +390,18 @@ void loop()
       }
       else
       {
-        Serial.println("movingAverageForce is "+ String(movingAverageForce));
+        //Serial.println("movingAverageForce is "+ String(movingAverageForce));
         const float difference = abs(movingAverageForce - xyzFmagnitude);
         Serial.println("Difference is "+String(difference));
+        //Serial.println(String(difference));
         if (difference > forceDifferenceThreshold)
         {
-          Serial.println("ALERT:passed force threshold");
           IMUTriggered = true;
         }
       }
       if (debugForce)
       {
-        Serial.println("Force Magnitue:"+ String(xyzFmagnitude));
+        Serial.println("Force Magnitude:"+ String(xyzFmagnitude));
       }
  
       secondsSoFar = millis()/1000;     
@@ -344,51 +430,25 @@ void loop()
         Serial.println("horizontal direction: " + String(mDirection)); 
       }
 
-     
-      Serial.println("at " + String(millis()) + "ms");
+      if (viewTime)
+      {
+        Serial.println("at " + String(millis()) + "ms"); 
+      }
       Serial.println(""); // Add an empty line
           
 
       bool allowAlarm = true;
      //Buzzer
-    if (ARMED && IMUTriggered && (hallSensorTriggered || IRSensorTriggered) && allowAlarm)
+    bool twoAlarmsTriggered = (IMUTriggered && (hallSensorTriggered || IRSensorTriggered)) || (hallSensorTriggered && (IMUTriggered || IRSensorTriggered)) || (IRSensorTriggered && (IMUTriggered || hallSensorTriggered));
+    bool oneAlarmTriggered = IMUTriggered || hallSensorTriggered || IRSensorTriggered;
+    if (ARMED && twoAlarmsTriggered && allowAlarm)
     {
-      // buzz
-     tone(buzzerPin, 750); // Send 1KHz sound signal...
-     delay(1000);        // ...for 1 sec
-     noTone(buzzerPin);     // Stop sound...
-     delay(250);
-     
-     tone(buzzerPin, 750); // Send 1KHz sound signal...
-     delay(1000);
-     noTone(buzzerPin);     // Stop sound...
-     delay(250);
-     
-     tone(buzzerPin, 750); // Send 1KHz sound signal...
-     delay(1000);
-     noTone(buzzerPin);     // Stop sound...     
-     
-     delay(2000);        // ...for 2sec
+     loudAlarm();
      checkIfShouldDisarm();
     }
-    else if (ARMED && IMUTriggered && allowAlarm)
+    else if (ARMED && oneAlarmTriggered && allowAlarm)
     {
-      // buzz
-     tone(buzzerPin, 1000); // Send 1KHz sound signal...
-     delay(1000);        // ...for 1 sec
-     noTone(buzzerPin);     // Stop sound...
-     delay(500);
-     
-     tone(buzzerPin, 1000); // Send 1KHz sound signal...
-     delay(1000);
-     noTone(buzzerPin);     // Stop sound...
-     delay(500);
-     
-     tone(buzzerPin, 1000); // Send 1KHz sound signal...
-     delay(1000);
-     noTone(buzzerPin);     // Stop sound...     
-     
-     delay(2000);        // ...for 2sec
+     lowAlarm();
      checkIfShouldDisarm();
 
     } 
