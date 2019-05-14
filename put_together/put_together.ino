@@ -12,18 +12,18 @@
 // Everything except IMU uses 5V. IMU uses 3.3V
 
 // Debugging
-bool debugSystemArmed = true;
-bool debugIMUTriggered = true;
-bool debugIRTriggered = true;
-bool debugIR_RPP = true;
+bool debugSystemArmed = false;
+bool debugIMUTriggered = false;
+bool debugIRTriggered = false;
+bool debugIR_RPP = false;
 bool debugIRVoltage = false;
-bool debugHallTriggered = true;
-bool debugHall_RPP = false;
+bool debugHallTriggered = false;
+bool debugHall_RPP = true;
 bool debugAcceleration = false;
-bool debugForce = true;
+bool debugForce = false;
 bool debugGyro = false;
 bool debugMagnetic = false;
-bool viewTime = true;
+bool viewTime = false;
 
 // Switch
 bool ARMED = false;
@@ -90,7 +90,7 @@ void recordNewForce (float newForce)
  
   if (i_forces < numOfDataPointsToSave) 
   {
-    Serial.println(0);
+    //Serial.println(0);
     savedForces[i_forces] = newForce;
   }
   else
@@ -130,8 +130,8 @@ void recordNewHallDetection(int newHallValue)
     int HALL_RPP = getSumOfArray(savedHallDetections);
     if (debugHall_RPP)
     {
-      Serial.println("HALL_RPP: "+String(HALL_RPP));
-      //Serial.println(String(HALL_RPP));      
+      //Serial.println("HALL_RPP: "+String(HALL_RPP));
+      Serial.println(String(HALL_RPP));      
     }
     if (HALL_RPP >= HALL_RPP_LIMIT)
     {
@@ -155,7 +155,7 @@ void recordNewIRDetection(int newIRValue)
     if (debugIR_RPP)
     {
       //Serial.println("IR_RPP: "+String(IR_RPP));
-      //Serial.println(String(IR_RPP));    
+      Serial.println(String(IR_RPP));    
     }
     
     if (IR_RPP >= IR_RPP_LIMIT)
@@ -260,7 +260,7 @@ void lowAlarm()
   tone(buzzerPin, 750); // Send 1KHz sound signal...
   delay(200);        // ...for 1 sec
   noTone(buzzerPin);     // Stop sound...
-  delay(200);  
+  delay(100);  
 }
 
 // ----------SETUP BLOCK BEGINS HERE ----------
@@ -392,8 +392,12 @@ void loop()
       {
         //Serial.println("movingAverageForce is "+ String(movingAverageForce));
         const float difference = abs(movingAverageForce - xyzFmagnitude);
-        Serial.println("Difference is "+String(difference));
-        //Serial.println(String(difference));
+        if (debugForce)
+        {
+          Serial.println("Difference is "+String(difference));
+          Serial.println(String(difference));
+          
+        }
         if (difference > forceDifferenceThreshold)
         {
           IMUTriggered = true;
