@@ -1,5 +1,9 @@
-
-// Pins
+/// -------------------------------------------------
+// Low-Cost Bike Theft Detector
+// MIT Media Lab MAS.836 Sensor Technologies Final Project
+// By William A. Rodriguez and Carla N. Pinzon
+/// -------------------------------------------------
+// Assign pins:
 // IR-LED input -> Analog 0
 // Hall Effect Output -> Digital 12
 // SDA Cable of IMU -> Analog 5
@@ -8,10 +12,14 @@
 // Switch Output -> Digital Pin 7
 // Switch Input -> Digital Pin 10
 
-// Power
+// -------------Power----------------
 // Everything except IMU uses 5V. IMU uses 3.3V
 
-// Debugging
+// -------------Debugging-------------
+// Set the following booleans to true or false depending
+// on which variables you would like to printed out
+// when running the code
+/// 
 bool debugSystemArmed = false;
 bool debugIMUTriggered = false;
 bool debugIRTriggered = false;
@@ -25,6 +33,11 @@ bool debugGyro = false;
 bool debugMagnetic = false;
 bool viewTime = false;
 
+
+/// The following code should NOT be editted for 
+/// debugging purposes. Only for changes in logic.
+//
+//
 // Switch
 bool ARMED = false;
 int switchOutputPin = 7;
@@ -38,7 +51,6 @@ bool IMUTriggered = false;
 
 
 // IR-LED
-//const int input = A0 ;    //naming pin 2 as ‘pwm’ variable
 int IROutputPin = A0;
 
 // Hall effect
@@ -69,10 +81,14 @@ bool systemArmed = false;
 bool triggerAlarm = false;
 
 
+// The following defines the length of the period of the data collection
+// If you want to edit the seconds of data that are collected, you must
+// also take into account the size of the "numOfDataPointsToSave" array.
+// 
 const int dataReadPeriod = 100; //in milliseconds
 
 // Moving Average
-const int numOfDataPointsToSave = 100; // saves 50 seconds (100 readings/2 readings per sec) 
+const int numOfDataPointsToSave = 100; // saves 10 seconds (100 readings*0.1 second periods) 
 float savedForces[numOfDataPointsToSave];
 // saved wheel detections
 int savedHallDetections[numOfDataPointsToSave];
@@ -85,26 +101,20 @@ float forceDifferenceThreshold = 6;
 
 
 int i_forces = 0;
+// This function records a new force magnitude to the savedForces array.
 void recordNewForce (float newForce)
 {
  
   if (i_forces < numOfDataPointsToSave) 
   {
-    //Serial.println(0);
     savedForces[i_forces] = newForce;
   }
   else
   {
-    //Serial.println("Refilling at " +String(i_forces));
-
     savedForces[i_forces % numOfDataPointsToSave] = newForce;
-
     if (movingAverageCalculatedYet){
-      const float difference = abs(movingAverageForce - newForce);
-      //Serial.println(String(difference));
-      
+      const float difference = abs(movingAverageForce - newForce);      
       if (difference > forceDifferenceThreshold){
-        Serial.println("ALERT:passed force threshold");
         IMUTriggered = true;
       }
     }
@@ -118,6 +128,7 @@ void recordNewForce (float newForce)
 const int HALL_RPP_LIMIT = 2;
 
 int i_hall = 0;
+// Records the value of the hall effect sensor into its corresponding data array
 void recordNewHallDetection(int newHallValue)
 {
   if (i_hall < numOfDataPointsToSave)
@@ -130,7 +141,6 @@ void recordNewHallDetection(int newHallValue)
     int HALL_RPP = getSumOfArray(savedHallDetections);
     if (debugHall_RPP)
     {
-      //Serial.println("HALL_RPP: "+String(HALL_RPP));
       Serial.println(String(HALL_RPP));      
     }
     if (HALL_RPP >= HALL_RPP_LIMIT)
@@ -143,6 +153,7 @@ void recordNewHallDetection(int newHallValue)
 
 int i_IR = 0;
 const int IR_RPP_LIMIT = 3;
+// Records the value of the IR LED sensor into its corresponding data array
 void recordNewIRDetection(int newIRValue)
 {
   if (i_IR < numOfDataPointsToSave){
@@ -166,11 +177,11 @@ void recordNewIRDetection(int newIRValue)
   i_IR++;
 }
 
-
+// Returns the sum of values within one of our data arrays
 int getSumOfArray(int integerArray[])
 {
   int sum = 0;
-  int n = numOfDataPointsToSave;//sizeof(integerArray) / sizeof(integerArray[0]);
+  int n = numOfDataPointsToSave;
   for (int i = 0; i < n ; i++)
   { 
       sum += integerArray[i];
@@ -178,10 +189,11 @@ int getSumOfArray(int integerArray[])
   return sum;
 }
 
+// Sets all the values within one of our data arrays to zero
 void setArrayToZero(int integerArray[])
 {
   int sum = 0;
-  int n = numOfDataPointsToSave;//sizeof(integerArray) / sizeof(integerArray[0]);
+  int n = numOfDataPointsToSave;
   for (int i = 0; i < n ; i++)
   { 
       integerArray[i] = 0;
@@ -189,7 +201,7 @@ void setArrayToZero(int integerArray[])
 }
 
 
-// return the average of an inputted array
+// Returns the average of our desired array
 float getAverage(float inputArray[])
 {
     float sum = 0;
@@ -200,13 +212,14 @@ float getAverage(float inputArray[])
     return sum/sizeof(inputArray);
 }
 
-// Changes alarm from armed to disarmed and vice-versa
+// Changes the built-in LED status from armed to disarmed and vice-versa
 void toggleARMED()
 {
   ARMED = !ARMED;
   updateALARMEDled();
 }
 
+// Updated the built-in LED status to reflect ARMED status
 void updateALARMEDled()
 {
   if (ARMED)
@@ -219,6 +232,8 @@ void updateALARMEDled()
   }
 }
 
+// Verifies if the user is pressing the arm/disarm switch in order to
+// properly update program variables.
 void checkIfShouldDisarm()
 {
   int switchVoltage = digitalRead(switchOutputPin);
@@ -234,6 +249,8 @@ void checkIfShouldDisarm()
   }
 }
 
+// Activates the second level, louder, and higher frequency alarm
+// Be careful with delays when managing time-sensitive logic.
 void loudAlarm()
 {
   // buzz
@@ -254,6 +271,9 @@ void loudAlarm()
   delay(2000);        // ...for 2sec
 }
 
+
+// Activates the first level, more quiet, and lower frequency alarm
+// Be careful with delays when managing time-sensitive logic.
 void lowAlarm()
 {
   // buzz
@@ -263,10 +283,9 @@ void lowAlarm()
   delay(100);  
 }
 
+
 // ----------SETUP BLOCK BEGINS HERE ----------
 // -----(code that runs right before loop) ----------
-
-
 void setup()
 {
      pinMode(IROutputPin,INPUT_PULLUP) ;  //setting pin A0 as input for IR-LED sensor
@@ -276,7 +295,6 @@ void setup()
      digitalWrite(switchVinPin,HIGH);
      pinMode(switchOutputPin,INPUT);
      pinMode(LED_BUILTIN, OUTPUT);
-
 
     // IMU Setup  
   while(!Serial);
@@ -323,7 +341,6 @@ void loop()
      Serial.println("IRSensorTriggered is " + String(IRSensorTriggered));      
     }
 
-
      int switchVoltage = digitalRead(switchOutputPin);   // read the hallEffectOutputPin
      if (switchVoltage == HIGH){
         //Serial.println("Switch: 1");
@@ -342,31 +359,25 @@ void loop()
       Serial.println(sensorValue);      
      }
      
-     if (sensorValue < 2.2) {
+     if (sensorValue < 2.2) { //2.2 value was experimentally set as threshold for smoothing towards digital signal from analog
       int IR_decision = 0;
-      //Serial.println("IR: "+ String(IR_decision));
       recordNewIRDetection(1); //it's opposite, because IR=1 means spoke has not crossed IR LED
      }
      else {
       int IR_decision = 1;
-      //Serial.println("IR:  "+ String(IR_decision));
       recordNewIRDetection(0);   
      }
 
       //Hall Effect
      hallEffectVoltage = digitalRead(hallEffectOutputPin);   // read the hallEffectOutputPin
      if (hallEffectVoltage == HIGH){
-        //Serial.println("Hall: 0");
         recordNewHallDetection(0);
       } 
       else{
-        //Serial.println("Hall: 1");
         recordNewHallDetection(1);
       }
 
-     // IMU
-    //Serial.println("sensorId: " + String(sensorId));
-    
+     // IMU    
       mySensor.accelUpdate();
       aX = mySensor.accelX();
       aY = mySensor.accelY();
@@ -390,7 +401,6 @@ void loop()
       }
       else
       {
-        //Serial.println("movingAverageForce is "+ String(movingAverageForce));
         const float difference = abs(movingAverageForce - xyzFmagnitude);
         if (debugForce)
         {
@@ -441,8 +451,8 @@ void loop()
       Serial.println(""); // Add an empty line
           
 
-      bool allowAlarm = true;
-     //Buzzer
+    bool allowAlarm = true;
+    //Buzzer
     bool twoAlarmsTriggered = (IMUTriggered && (hallSensorTriggered || IRSensorTriggered)) || (hallSensorTriggered && (IMUTriggered || IRSensorTriggered)) || (IRSensorTriggered && (IMUTriggered || hallSensorTriggered));
     bool oneAlarmTriggered = IMUTriggered || hallSensorTriggered || IRSensorTriggered;
     if (ARMED && twoAlarmsTriggered && allowAlarm)
@@ -461,8 +471,4 @@ void loop()
      //Clear: around 3.41V
      //Blocked: below 1.2V (ranges depending on how far)
      
-  // We can set our own offset for mag values
-  // mySensor.magXOffset = -50;
-  // mySensor.magYOffset = -55;
-  // mySensor.magZOffset = -10;
 }
