@@ -251,7 +251,7 @@ void checkIfShouldDisarm()
 
 // Activates the second level, louder, and higher frequency alarm
 // Be careful with delays when managing time-sensitive logic.
-void loudAlarm()
+void triggerLoudAlarm()
 {
   // buzz
   tone(buzzerPin, 1000); // Send 1KHz sound signal...
@@ -274,7 +274,7 @@ void loudAlarm()
 
 // Activates the first level, more quiet, and lower frequency alarm
 // Be careful with delays when managing time-sensitive logic.
-void lowAlarm()
+void triggerLowAlarm()
 {
   // buzz
   tone(buzzerPin, 750); // Send 1KHz sound signal...
@@ -453,16 +453,16 @@ void loop()
 
     bool allowAlarm = true;
     //Buzzer
-    bool twoAlarmsTriggered = (IMUTriggered && (hallSensorTriggered || IRSensorTriggered)) || (hallSensorTriggered && (IMUTriggered || IRSensorTriggered)) || (IRSensorTriggered && (IMUTriggered || hallSensorTriggered));
-    bool oneAlarmTriggered = IMUTriggered || hallSensorTriggered || IRSensorTriggered;
-    if (ARMED && twoAlarmsTriggered && allowAlarm)
+    bool twoSensorsTriggered = (IMUTriggered && (hallSensorTriggered || IRSensorTriggered)) || (hallSensorTriggered && (IMUTriggered || IRSensorTriggered)) || (IRSensorTriggered && (IMUTriggered || hallSensorTriggered));
+    bool oneSensorTriggered = IMUTriggered || hallSensorTriggered || IRSensorTriggered;
+    if (ARMED && twoSensorsTriggered && allowAlarm)
     {
-     loudAlarm();
+     triggerLoudAlarm();
      checkIfShouldDisarm();
     }
-    else if (ARMED && oneAlarmTriggered && allowAlarm)
+    else if (ARMED && oneSensorTriggered && allowAlarm)
     {
-     lowAlarm();
+     triggerLowAlarm();
      checkIfShouldDisarm();
 
     } 
